@@ -2,9 +2,12 @@ var request = require('request');
 var session = require('express-session');
 var url = require('url');
 var RedisStore = require('connect-redis')(session);
-var express = require('express');
 var path = require('path');
 var bodyParser = require('body-parser');
+var express = require('express');
+var app = express();
+var server = require('http').Server(app);
+var io = require('socket.io')(server);
 // var config = require('/etc/service-config/service');
 // var config = require('/etc/nodejs-config/yuli2admin');
 // var oidcConfig = config.oidc;
@@ -47,8 +50,6 @@ var oidc = new yuliIssuer.Client(config.creds);
 request.debug=false;
 // Set default node environment to development
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-
-var app = express();
 
 
 /////////////////////////////LOGS/////////////////////////
@@ -98,58 +99,46 @@ app.use(logMiddleware());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 
-app.use(session({
+var sessionMiddleware = session({
   secret: 'e56d30f4b6573499882ac643c2cbf29d',
   resave: true,
   saveUninitialized: true//,
   // store: new RedisStore(config.redis)
-}));
+});
 
-// app.use(function (req,res,next) {
-//   console.log(req.session);
-//   next();
-// })
-
+app.use(sessionMiddleware);
 
 
 app.use('/bower_components', express.static(path.join(__dirname, '..', 'bower_components')));
-app.use('/', express.static(path.join(__dirname, '..', 'app')));
+app.use('/', function (req, res, next) {
+    console.log(req.session); next();
+}, express.static(path.join(__dirname, '..', 'app')));
 app.use('/loged', isLoggeIn, express.static(path.join(__dirname, '..', 'app2')));
 
 
-function isLoggeIn(req, res, next) {
-  console.log('session: ', req.session);
-  if (!req.session.user) {
-    var authUrl = oidc.authorizationUrl({
-                    redirect_uri: req.protocol+'://'+req.headers.host+'/oidc/authCb',
-                    scope: 'openid',
-                  }); // => String
-    return res.redirect(authUrl);
-  }
-  else {
-    next();
-  }
-}
 
 
-
+app.use('/oidc/logout', logOut);
 app.use('/oidc/auth', isLoggeIn);
-
 app.use('/oidc/authCb', function (req, res, next) {
 
   oidc.authorizationCallback(req.protocol+'://'+req.headers.host+'/oidc/authCb', req.query)
   .then(function(tokenSet) {
 
-    req.session.tokenSet = tokenSet;
-    oidc.userinfo(tokenSet) // => Promise
-    .then(function (userinfo) {
-      req.session.user = userinfo;
-      return res.redirect('/loged');
-    });
+        req.session.tokenSet = tokenSet;
+      oidc.userinfo(tokenSet) // => Promise
+      .then(function (userinfo) {
+        req.session.user = userinfo;
+        return res.redirect('/loged');
+      })
+      .catch(function (err) {
+        console.log("userinfo err: ", err);
+      });
+
   })
   .catch(function (err) {
-    console.log(err);
-  })
+    console.log("authorizationCb err: ", err);
+  });
 
   // Promise.all([
   //   oidc.authorizationCallback(req.protocol+'://'+req.headers.host+'/oidc/authCb', req.query)
@@ -185,5 +174,46 @@ app.use('/oidc/authCb', function (req, res, next) {
 });
 
 
-app.listen(9000);//config.port||9000);
+function isLoggeIn(req, res, next) {
+  // console.log('session: ', req.session);
+  if (!req.session.user) {
+    var authUrl = oidc.authorizationUrl({
+                    redirect_uri: req.protocol+'://'+req.headers.host+'/oidc/authCb',
+                    scope: 'openid',
+                  }); // => String
+    return res.redirect(authUrl);
+  }
+  else {
+    next();
+  }
+}
+
+function logOut(req, res, next) {
+  req.session.destroy(function (err) {
+    if (err) console.log(err);
+    else console.log("login out");
+  });
+  next();
+}
+
+
+io.use(function(socket, next) {
+  sessionMiddleware(socket.request, socket.request.res, next);
+});
+
+io.on('connection', function(socket){
+  if (socket.request.session) {
+    socket.emit('user info', socket.request.session.user);
+  }
+
+  socket.on('closeSession',function(){
+    // socket.request.session.destroy();
+    socket.request.session.user=null;
+    // socket.request.session.uid=null;
+    socket.request.session.save();
+  });
+});
+
+// app.listen(9000)
+server.listen(9000);//config.port||9000);
 // app.listen(9000);//config.port||9000);

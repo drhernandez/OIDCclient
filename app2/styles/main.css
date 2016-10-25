@@ -59,12 +59,13 @@ body {
   margin-top: 28px;
 }
 
-div.social-wrap.c {
-  width: 300px;
-  height: 250px
+div.social-wrap {
+  width: 100%;
+  height: 250px;
+  font-size: x-large;
 }
 
-div.social-wrap.c button {
+div.social-wrap button {
     padding-left: 35px;
     padding-right: 0px;
     height: 35px;
@@ -77,9 +78,9 @@ div.social-wrap.c button {
     border-radius: 4px;
     color: white;
     font-family:"Merriweather Sans", sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     margin-bottom: 15px;
-    width: 100%;
+    width: 200px;
     height: 45px;
     border-bottom: 2px solid transparent;
     border-left: 1px solid transparent;
@@ -88,14 +89,14 @@ div.social-wrap.c button {
     text-shadow: rgba(0, 0, 0, .4) -1px -1px 0;
 }
 
-div.social-wrap.c > .facebook {
+div.social-wrap > .facebook {
     background: url(http://aroosamanzar.com/uploads/images/facebook-logo-png-white-i6.png), -webkit-gradient(linear, left top, left bottom, color-stop(0%, #4c74c4), color-stop(100%, #3b5998));
     background-size: 30px 27px, cover;
     background-position: 10px center, center center;
     background-repeat: no-repeat, repeat;
 }
 
-div.social-wrap.c > .yuli {
+div.social-wrap > .yuli {
     background: url(../images/Yuli-logo-fish-white.svg), -webkit-gradient(linear, left top, left bottom, color-stop(0%, #009688), color-stop(100%, #03776C));
     background-size: 45px 45px, cover;
     background-position: 10px center, center center;

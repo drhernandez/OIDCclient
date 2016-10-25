@@ -1,7 +1,9 @@
 <div class="jumbotron">
 
   <div class="title">OIDC Client</div >
-  <div class="social-wrap c centered">
-      Tas logeado wacho
+  <div class="social-wrap centered">
+      Bienvenido: {{vm.user.name}} <br>
+      Te has logeado con el usuario: {{vm.user.email}} <br>
+      <button class="yuli centered" ng-click="vm.closeSession()">Close session</button>
   </div>
 </div>

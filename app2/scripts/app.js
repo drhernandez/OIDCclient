@@ -30,6 +30,31 @@ angular
       .otherwise({
         redirectTo: '/'
       });
+  })
+  .factory('socketFactory', function(){
+
+    var socketFactory = {};
+    var socket = null;
+
+    socketFactory.connect = function(){
+      if (!socket) {
+        socket = io.connect();
+      }
+      return socket;
+    };
+
+    socketFactory.getSocket = function(){
+      return socket;
+    };
+
+    socketFactory.closeSession = function(){
+      socket.emit('closeSession');
+      // window.location = "/";
+      window.location.href = "http://openid.unc.edu.ar:8080/openaselect/sso/user/logout";
+    };
+
+    return socketFactory;
+
   });
 
   // app.config(['$httpProvider', function($httpProvider) {
