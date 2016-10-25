@@ -1,7 +1,7 @@
 var request = require('request');
-// var session = require('express-session');
+var session = require('express-session');
 var url = require('url');
-// var RedisStore = require('connect-redis')(session);
+var RedisStore = require('connect-redis')(session);
 var express = require('express');
 var path = require('path');
 var bodyParser = require('body-parser');
@@ -11,8 +11,9 @@ var bodyParser = require('body-parser');
 var qs = require('querystring');
 const issuer = require('openid-client').Issuer;
 
+
 var config = {
-                //  "backend": "http://cendraws.unc.edu.ar/api/v1",
+                 "backend": "http://yuli2ws.unc.edu.ar/v1",
                  "issuer": {
                          "issuer": "http://yuli2ws.unc.edu.ar",
                          "authorization_endpoint": "http://yuli2.unc.edu.ar/oidc/auth",
@@ -22,37 +23,25 @@ var config = {
                  },
                  "creds": {
                          "client_id": "5806224acdb45695dc1d8b74",
-                          "client_secret": "123456",
+                          "client_secret": "a435338f0757ccfc34d21e9eb0f88a8a",
                          "id_token_signed_response_alg": "HS256"
                  },
                  "redis": {
-                         "host": "redis",
+                         "host": "localhost",
                          "port": 6379
+                        //  "host": "redis",
+                        //  "port": 6379
                  }
             }
+
+var defaultRequest = request.defaults({baseUrl: config.backend});
+
 
 ////////////////////////////////////////////////
 /////        SET OIDC ISSUER: YULI         /////
 ////////////////////////////////////////////////
-// var yuliIssuer = new Issuer({
-//   issuer: 'http://localhost:3012',
-//   authorization_endpoint: 'http://localhost:3012/oidc/auth',
-//   token_endpoint: 'http://localhost:3012/oidc/token',
-//   userinfo_endpoint: 'http://localhost:3012/oidc/userinfo'
-// });
-
 var yuliIssuer = new issuer(config.issuer);
 var oidc = new yuliIssuer.Client(config.creds);
-
-// const client = new yuliIssuer.Client({
-//   client_id: '5806224acdb45695dc1d8b74',
-//   client_secret: '123456'
-// }); // => Client
-
-// const client = new yuliIssuer.Client({
-//   client_id: "zELcpfANLqY7Oqas",
-//   client_secret: "TQV5U29k1gHibH5bx1layBo0OSAvAbRT3UYW3EWrSYBB5swxjVfWUa1BS8lqzxG/0v9wruMcrGadany3"
-// }); // => Client
 
 
 request.debug=false;
@@ -105,52 +94,94 @@ var logMiddleware = function() {
   };
 };
 
-
-
-// app.use(function(req, res, next) {
-//   if (!req.session.uid) {
-//     req.session.uid = Math.random();
-//   }
-//   req.log(req.session.uid);
-//   next();
-// });
-
-
-// app.use(function(req, res, next){
-//   return res.redirect('http://localhost:3012/oidc/auth');
-//   // if(!req.session.user) return res.redirect('http://yuli2.unc.edu.ar/oidc/auth');
-// });
-
-app.use('/bower_components', express.static(path.join(__dirname, '..', 'bower_components')));
-app.use('/', express.static(path.join(__dirname, '..', 'app')));
-
-// app.use('/loged', isLoggeIn(req, res, next), express.static(path.join(__dirname, '..', 'app2')));
-//
-// function isLoggeIn(req, res, next) {
-//   next();
-// }
-
 app.use(logMiddleware());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 
+app.use(session({
+  secret: 'e56d30f4b6573499882ac643c2cbf29d',
+  resave: true,
+  saveUninitialized: true//,
+  // store: new RedisStore(config.redis)
+}));
 
-app.use('/oidc/auth', function (req, res, next) {
-  var authUrl = oidc.authorizationUrl({
-                  redirect_uri: 'http://localhost:9000/oidc/authCb',
-                  scope: 'openid',
-                }); // => String
-  return res.redirect(authUrl);
-})
+// app.use(function (req,res,next) {
+//   console.log(req.session);
+//   next();
+// })
 
-// oidc.get('/authCb', function (req, res, next) {
+
+
+app.use('/bower_components', express.static(path.join(__dirname, '..', 'bower_components')));
+app.use('/', express.static(path.join(__dirname, '..', 'app')));
+app.use('/loged', isLoggeIn, express.static(path.join(__dirname, '..', 'app2')));
+
+
+function isLoggeIn(req, res, next) {
+  console.log('session: ', req.session);
+  if (!req.session.user) {
+    var authUrl = oidc.authorizationUrl({
+                    redirect_uri: req.protocol+'://'+req.headers.host+'/oidc/authCb',
+                    scope: 'openid',
+                  }); // => String
+    return res.redirect(authUrl);
+  }
+  else {
+    next();
+  }
+}
+
+
+
+app.use('/oidc/auth', isLoggeIn);
+
 app.use('/oidc/authCb', function (req, res, next) {
-  console.log('req.query.code: ' + req.query.code);
-  // oidc.authorizationCallback('http://localhost:9000/oidc/authCb', req.query) // => Promise
-  // .then(function (tokenSet) {
-  //   console.log('received tokens %j', tokenSet);
+
+  oidc.authorizationCallback(req.protocol+'://'+req.headers.host+'/oidc/authCb', req.query)
+  .then(function(tokenSet) {
+
+    req.session.tokenSet = tokenSet;
+    oidc.userinfo(tokenSet) // => Promise
+    .then(function (userinfo) {
+      req.session.user = userinfo;
+      return res.redirect('/loged');
+    });
+  })
+  .catch(function (err) {
+    console.log(err);
+  })
+
+  // Promise.all([
+  //   oidc.authorizationCallback(req.protocol+'://'+req.headers.host+'/oidc/authCb', req.query)
+  //   .then(function(tokenSet) {
+  //     req.session.tokenSet = tokenSet;
+  //     return oidc.userinfo(tokenSet);
+  //   })
+  // ])
+  // .then(function(r) {
+  //   defaultRequest({url: '/?objInterface='+r[1]._id+'&user.externalId='+r[0].sub, headers: {authorization: 'Bearer '+req.session.tokenSet.access_token}}, function(error, response, body) {
+  //     if(error) return res.status(500).send(error);
+  //     var user;
+  //     try {
+  //       user = JSON.parse(body)[0];
+  //     } catch(err) {
+  //       return res.status(500).send(err);
+  //     }
+  //     // req.session.profile=r[0];
+  //     // if(!user) {
+  //     //   req.session.user='anonymous';
+  //     //   return res.redirect('/#/notUser');
+  //     // }
+  //     req.session.user = user;
+  //     console.log('user: ', req.session.user);
+  //     res.redirect('/loged');
+  //   });
+  // })
+  // .catch(function(err) {
+  //   res.status(500).send(err);
   // });
-  return res.redirect('/#/about');
+
+
 });
 
 
