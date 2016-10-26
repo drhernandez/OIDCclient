@@ -101,8 +101,8 @@ app.use(bodyParser.urlencoded());
 
 var sessionMiddleware = session({
   secret: 'e56d30f4b6573499882ac643c2cbf29d',
-  resave: true,
-  saveUninitialized: true//,
+  resave: false,
+  saveUninitialized: false//,
   // store: new RedisStore(config.redis)
 });
 
@@ -110,15 +110,16 @@ app.use(sessionMiddleware);
 
 
 app.use('/bower_components', express.static(path.join(__dirname, '..', 'bower_components')));
-app.use('/', function (req, res, next) {
-    console.log(req.session); next();
-}, express.static(path.join(__dirname, '..', 'app')));
+app.use('/', express.static(path.join(__dirname, '..', 'app')));
+// app.use('/', function (req, res, next) {
+//     console.log(req.session); next();
+// }, express.static(path.join(__dirname, '..', 'app')));
 app.use('/loged', isLoggeIn, express.static(path.join(__dirname, '..', 'app2')));
 
 
 
 
-app.use('/oidc/logout', logOut);
+app.use('/logout', logOut);
 app.use('/oidc/auth', isLoggeIn);
 app.use('/oidc/authCb', function (req, res, next) {
 
@@ -191,9 +192,11 @@ function isLoggeIn(req, res, next) {
 function logOut(req, res, next) {
   req.session.destroy(function (err) {
     if (err) console.log(err);
-    else console.log("login out");
+    else {
+      console.log("login out: ");
+      res.redirect('http://yuli2.unc.edu.ar/logout?redirect_uri=' + req.protocol+'://'+req.headers.host);
+    }
   });
-  next();
 }
 
 
@@ -207,10 +210,12 @@ io.on('connection', function(socket){
   }
 
   socket.on('closeSession',function(){
-    // socket.request.session.destroy();
-    socket.request.session.user=null;
-    // socket.request.session.uid=null;
-    socket.request.session.save();
+    console.log("closing session");
+    socket.request.session.destroy();
+    // socket.request.res.redirect('/oidc/logout')
+    // console.log("request: ", socket.request);
+    // socket.request.session.user=null;
+    // socket.request.session.save();
   });
 });
 

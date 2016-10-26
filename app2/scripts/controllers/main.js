@@ -24,7 +24,7 @@ angular.module('oidcclientApp')
     function closeSession() {
       vm.socket.emit('closeSession');
       // window.location = "/";
-      window.location.href = "/";
+      window.location.href = "/logout";
     }
 
     vm.socket.on('user info', function (user) {
